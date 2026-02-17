@@ -446,6 +446,106 @@ def ucs(canvas):
 
 
 # ──────────────────────────────────────────
+#  BIDIRECTIONAL SEARCH
+# ──────────────────────────────────────────
+
+def bidirectional(canvas):
+    fwd_queue    = deque([START])
+    bwd_queue    = deque([TARGET])
+    fwd_frontier = {START}
+    bwd_frontier = {TARGET}
+    fwd_explored = {START: None}
+    bwd_explored = {TARGET: None}
+
+    def reconstruct(meet_node):
+        fwd_half = []
+        node = meet_node
+        while node is not None:
+            fwd_half.append(node)
+            node = fwd_explored.get(node)
+        fwd_half.reverse()
+
+        bwd_half = []
+        node = bwd_explored.get(meet_node)
+        while node is not None:
+            bwd_half.append(node)
+            node = bwd_explored.get(node)
+        bwd_half.append(TARGET)
+
+        return fwd_half + bwd_half
+
+    meet_node = None
+
+    while fwd_queue or bwd_queue:
+
+        # ── Forward step ──────────────────────────────────────────────
+        if fwd_queue:
+            current = fwd_queue.popleft()
+            fwd_frontier.discard(current)
+
+            draw_grid_bidir(canvas,
+                            fwd_frontier=fwd_frontier.copy(),
+                            bwd_frontier=bwd_frontier.copy(),
+                            fwd_explored=set(fwd_explored),
+                            bwd_explored=set(bwd_explored),
+                            status=f"Bidir – FWD exploring {current}")
+            canvas.update()
+            time.sleep(STEP_DELAY)
+
+            if current in bwd_explored:
+                meet_node = current
+                break
+
+            row, col = current
+            for r, c, _ in get_neighbors(row, col):
+                if (r, c) not in fwd_explored and (r, c) not in fwd_frontier:
+                    fwd_explored[(r, c)] = current
+                    fwd_frontier.add((r, c))
+                    fwd_queue.append((r, c))
+
+        # ── Backward step ─────────────────────────────────────────────
+        if bwd_queue:
+            current = bwd_queue.popleft()
+            bwd_frontier.discard(current)
+
+            draw_grid_bidir(canvas,
+                            fwd_frontier=fwd_frontier.copy(),
+                            bwd_frontier=bwd_frontier.copy(),
+                            fwd_explored=set(fwd_explored),
+                            bwd_explored=set(bwd_explored),
+                            status=f"Bidir – BWD exploring {current}")
+            canvas.update()
+            time.sleep(STEP_DELAY)
+
+            if current in fwd_explored:
+                meet_node = current
+                break
+
+            row, col = current
+            for r, c, _ in get_neighbors(row, col):
+                if (r, c) not in bwd_explored and (r, c) not in bwd_frontier:
+                    bwd_explored[(r, c)] = current
+                    bwd_frontier.add((r, c))
+                    bwd_queue.append((r, c))
+
+    if meet_node is not None:
+        full_path = reconstruct(meet_node)
+        draw_grid_bidir(canvas,
+                        fwd_explored=set(fwd_explored),
+                        bwd_explored=set(bwd_explored),
+                        path=set(full_path),
+                        meet=meet_node,
+                        status=f"Bidir – Path Found! ✓  meeting={meet_node}  length={len(full_path)}")
+        canvas.update()
+        return full_path
+
+    draw_grid_bidir(canvas, fwd_explored=set(fwd_explored), bwd_explored=set(bwd_explored),
+                    status="Bidir – No path found ✗")
+    canvas.update()
+    return None
+
+
+# ──────────────────────────────────────────
 #  RUN BUTTON CALLBACK
 # ──────────────────────────────────────────
 
@@ -462,6 +562,7 @@ def run_algorithm():
         elif algo == "DFS":   dfs(canvas)
         elif algo == "UCS":   ucs(canvas)
         elif algo == "IDDFS": iddfs(canvas)
+        elif algo == "Bidir": bidirectional(canvas)
         elif algo == "DLS":
             try:
                 limit = int(depth_var.get())
@@ -536,7 +637,7 @@ tk.Label(ctrl, text="Algorithm:", bg="#FAFAFA",
 
 algo_var = tk.StringVar(root)
 algo_var.set("BFS")
-tk.OptionMenu(ctrl, algo_var, "BFS", "DFS", "UCS", "DLS", "IDDFS").grid(row=0, column=1, padx=6)
+tk.OptionMenu(ctrl, algo_var, "BFS", "DFS", "UCS", "DLS", "IDDFS", "Bidir").grid(row=0, column=1, padx=6)
 
 # Depth limit row (DLS only)
 depth_frame = tk.Frame(root, bg="#FAFAFA")
