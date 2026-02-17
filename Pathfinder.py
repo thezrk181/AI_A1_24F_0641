@@ -202,13 +202,114 @@ def draw_grid_bidir(canvas,
 
 
 # ──────────────────────────────────────────
-#  RUN BUTTON CALLBACK (placeholder – no algorithms yet)
+#  BFS
+# ──────────────────────────────────────────
+
+def bfs(canvas):
+
+    def run_bfs(start_node=START):
+        queue    = deque([[start_node]])
+        explored = set()
+        in_queue = {start_node}
+
+        while queue:
+            path    = queue.popleft()
+            current = path[-1]
+            in_queue.discard(current)
+
+            if current in explored:
+                continue
+            explored.add(current)
+
+            draw_grid(canvas,
+                      frontier=in_queue.copy(),
+                      explored=explored,
+                      status=f"BFS – exploring {current}")
+            canvas.update()
+            time.sleep(STEP_DELAY)
+
+            if current == TARGET:
+                draw_grid(canvas, path=set(path),
+                          status=f"BFS – Path Found! ✓  length={len(path)}")
+                canvas.update()
+                return path
+
+            row, col = current
+            for r, c, _ in get_neighbors(row, col):
+                if (r, c) not in explored and (r, c) not in in_queue:
+                    queue.append(path + [(r, c)])
+                    in_queue.add((r, c))
+
+        draw_grid(canvas, status="BFS – No path found ✗")
+        canvas.update()
+        return None
+
+    return run_bfs()
+
+
+# ──────────────────────────────────────────
+#  DFS
+# ──────────────────────────────────────────
+
+def dfs(canvas):
+
+    def run_dfs(start_node=START):
+        stack    = [[start_node]]
+        explored = set()
+        in_stack = {start_node}
+
+        while stack:
+            path    = stack.pop()
+            current = path[-1]
+            in_stack.discard(current)
+
+            if current in explored:
+                continue
+            explored.add(current)
+
+            draw_grid(canvas,
+                      frontier=in_stack.copy(),
+                      explored=explored,
+                      status=f"DFS – exploring {current}")
+            canvas.update()
+            time.sleep(STEP_DELAY)
+
+            if current == TARGET:
+                draw_grid(canvas, path=set(path),
+                          status=f"DFS – Path Found! ✓  length={len(path)}")
+                canvas.update()
+                return path
+
+            row, col = current
+            for r, c, _ in get_neighbors(row, col):
+                if (r, c) not in explored and (r, c) not in in_stack:
+                    stack.append(path + [(r, c)])
+                    in_stack.add((r, c))
+
+        draw_grid(canvas, status="DFS – No path found ✗")
+        canvas.update()
+        return None
+
+    return run_dfs()
+
+
+# ──────────────────────────────────────────
+#  RUN BUTTON CALLBACK
 # ──────────────────────────────────────────
 
 def run_algorithm():
     reset_grid()
-    draw_grid(canvas, status="No algorithms implemented yet…")
+    draw_grid(canvas, status="Starting…")
     canvas.update()
+    run_btn.config(state=tk.DISABLED)
+    root.update()
+
+    algo = algo_var.get()
+    try:
+        if   algo == "BFS":   bfs(canvas)
+        elif algo == "DFS":   dfs(canvas)
+    finally:
+        run_btn.config(state=tk.NORMAL)
 
 
 # ──────────────────────────────────────────
