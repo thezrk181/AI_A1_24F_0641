@@ -294,6 +294,158 @@ def dfs(canvas):
 
 
 # ──────────────────────────────────────────
+#  DLS
+# ──────────────────────────────────────────
+
+def dls(canvas, limit):
+
+    def run_dls(start_node=START, lim=limit):
+        stack    = [([start_node], 0)]
+        explored = set()
+        in_stack = {start_node}
+
+        while stack:
+            path, depth = stack.pop()
+            current     = path[-1]
+            in_stack.discard(current)
+
+            if current in explored:
+                continue
+            explored.add(current)
+
+            draw_grid(canvas,
+                      frontier=in_stack.copy(),
+                      explored=explored,
+                      status=f"DLS – exploring {current}  depth={depth}/{lim}")
+            canvas.update()
+            time.sleep(STEP_DELAY)
+
+            if current == TARGET:
+                draw_grid(canvas, path=set(path),
+                          status=f"DLS – Path Found! ✓  depth={depth}")
+                canvas.update()
+                return path
+
+            if depth >= lim:
+                continue
+
+            row, col = current
+            for r, c, _ in get_neighbors(row, col):
+                if (r, c) not in explored and (r, c) not in in_stack:
+                    stack.append((path + [(r, c)], depth + 1))
+                    in_stack.add((r, c))
+
+        draw_grid(canvas,
+                  status=f"DLS – No path within depth limit {lim} ✗")
+        canvas.update()
+        return None
+
+    return run_dls()
+
+
+# ──────────────────────────────────────────
+#  IDDFS
+# ──────────────────────────────────────────
+
+def iddfs(canvas):
+    max_lim  = ROWS * COLS
+
+    for limit in range(max_lim + 1):
+        draw_grid(canvas,
+                  status=f"IDDFS – starting iteration  depth limit = {limit}")
+        canvas.update()
+        time.sleep(STEP_DELAY)
+
+        stack    = [([START], 0)]
+        explored = set()
+        in_stack = {START}
+
+        while stack:
+            path, depth = stack.pop()
+            current     = path[-1]
+            in_stack.discard(current)
+
+            if current in explored:
+                continue
+            explored.add(current)
+
+            draw_grid(canvas,
+                      frontier=in_stack.copy(),
+                      explored=explored,
+                      status=f"IDDFS – limit={limit}  exploring {current}  depth={depth}")
+            canvas.update()
+            time.sleep(STEP_DELAY)
+
+            if current == TARGET:
+                draw_grid(canvas, path=set(path),
+                          status=f"IDDFS – Path Found! ✓  depth limit={limit}  length={len(path)}")
+                canvas.update()
+                return path
+
+            if depth < limit:
+                row, col = current
+                for r, c, _ in get_neighbors(row, col):
+                    if (r, c) not in explored and (r, c) not in in_stack:
+                        stack.append((path + [(r, c)], depth + 1))
+                        in_stack.add((r, c))
+
+        draw_grid(canvas, explored=explored,
+                  status=f"IDDFS – limit={limit} exhausted, deepening…")
+        canvas.update()
+        time.sleep(STEP_DELAY * 1.5)
+
+    draw_grid(canvas, status="IDDFS – No path found ✗")
+    canvas.update()
+    return None
+
+
+# ──────────────────────────────────────────
+#  UCS
+# ──────────────────────────────────────────
+
+def ucs(canvas):
+    counter  = 0
+    pq       = [(0.0, counter, [START])]
+    explored = set()
+    best_cost = {START: 0.0}
+
+    while pq:
+        cost, _, path = heapq.heappop(pq)
+        current       = path[-1]
+
+        if current in explored:
+            continue
+        explored.add(current)
+
+        frontier = {entry[2][-1] for entry in pq}
+        draw_grid(canvas,
+                  frontier=frontier,
+                  explored=explored,
+                  status=f"UCS – exploring {current}  cost={cost:.2f}")
+        canvas.update()
+        time.sleep(STEP_DELAY)
+
+        if current == TARGET:
+            draw_grid(canvas, path=set(path),
+                      status=f"UCS – Path Found! ✓  Total cost = {cost:.2f}")
+            canvas.update()
+            return path
+
+        row, col = current
+        for r, c, move_cost in get_neighbors(row, col):
+            if (r, c) not in explored:
+                new_cost = cost + move_cost
+                if new_cost < best_cost.get((r, c), float('inf')):
+                    best_cost[(r, c)] = new_cost
+                    counter += 1
+                    heapq.heappush(pq, (new_cost, counter, path + [(r, c)]))
+
+    draw_grid(canvas, status="UCS – No path found ✗")
+    canvas.update()
+    return None
+
+
+# ──────────────────────────────────────────
 #  RUN BUTTON CALLBACK
 # ──────────────────────────────────────────
 
@@ -308,6 +460,18 @@ def run_algorithm():
     try:
         if   algo == "BFS":   bfs(canvas)
         elif algo == "DFS":   dfs(canvas)
+        elif algo == "UCS":   ucs(canvas)
+        elif algo == "IDDFS": iddfs(canvas)
+        elif algo == "DLS":
+            try:
+                limit = int(depth_var.get())
+                if limit < 0:
+                    raise ValueError
+            except ValueError:
+                draw_grid(canvas, status="DLS – Please enter a valid depth limit (integer ≥ 0)")
+                canvas.update()
+                return
+            dls(canvas, limit)
     finally:
         run_btn.config(state=tk.NORMAL)
 
@@ -372,7 +536,20 @@ tk.Label(ctrl, text="Algorithm:", bg="#FAFAFA",
 
 algo_var = tk.StringVar(root)
 algo_var.set("BFS")
-tk.OptionMenu(ctrl, algo_var, "BFS", "DFS").grid(row=0, column=1, padx=6)
+tk.OptionMenu(ctrl, algo_var, "BFS", "DFS", "UCS", "DLS", "IDDFS").grid(row=0, column=1, padx=6)
+
+# Depth limit row (DLS only)
+depth_frame = tk.Frame(root, bg="#FAFAFA")
+depth_frame.pack(pady=(0, 4))
+tk.Label(depth_frame, text="Depth Limit (DLS):", bg="#FAFAFA",
+         font=("Arial", 10)).grid(row=0, column=0, padx=6)
+depth_var = tk.StringVar(root)
+depth_var.set("15")
+depth_entry = tk.Entry(depth_frame, textvariable=depth_var, width=5,
+                       font=("Arial", 11), justify="center")
+depth_entry.grid(row=0, column=1, padx=4)
+tk.Label(depth_frame, text="(used by DLS only)", bg="#FAFAFA",
+         font=("Arial", 9), fg="#888888").grid(row=0, column=2, padx=6)
 
 run_btn = tk.Button(ctrl, text="▶  Run Search",
                     command=run_algorithm,
