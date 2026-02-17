@@ -60,4 +60,6 @@ No additional packages need to be installed. Tkinter comes built-in with Python.
 
 ## Author
 
-AI Assignment 1 – Uninformed Search Algorithms
+24F-0641
+24F-0571
+
